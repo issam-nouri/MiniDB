@@ -1,8 +1,19 @@
+
 #ifndef STORAGE_H
 #define STORAGE_H
 
+typedef enum
+{
+    STORAGE_LINEAR,
+    STORAGE_HASHMAP
+} StorageMode;
+
+int storage_init(StorageMode mode);
+
 int storage_set(const char *key, int value);
+
 int storage_get(const char *key, int *value);
-void to_uppercase(char * str);
+
+void storage_close(void);
 
 #endif

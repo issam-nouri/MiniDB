@@ -1,63 +1,65 @@
-#include <stdio.h>
-#include <string.h>
+
 #include "storage.h"
+#include "storage_linear.h"
+#include "storage_hashmap.h"
 
-int storage_set(const char *key, int value)
+static StorageMode active_mode = STORAGE_LINEAR;
+static int initialized = 0;
+
+/* Initialiser le moteur choisi */
+int storage_init(StorageMode mode)
 {
-    FILE *file = fopen("data/data.log", "a");
+    if (initialized)
+        return 0;
 
-    if (file == NULL)
+    if (mode == STORAGE_HASHMAP)
     {
-        perror("Error opening data.log");
+        if (!storage_hashmap_init())
+            return 0;
+    }
+    else if (mode != STORAGE_LINEAR)
+    {
         return 0;
     }
 
-    fprintf(file, "%s %d\n", key, value);
-
-    fclose(file);
+    active_mode = mode;
+    initialized = 1;
 
     return 1;
 }
 
-
-int storage_get(const char *key, int *value)
+/* SET : choisir l'algorithme */
+int storage_set(const char *key, int value)
 {
-    FILE *file = fopen("data/data.log", "r");
-
-    if (file == NULL)
-    {
-        perror("Error opening data.log");
+    if (!initialized)
         return 0;
-    }
 
-    char line[256];
-    char stored_key[100];
-    int stored_value;
+    if (active_mode == STORAGE_HASHMAP)
+        return storage_hashmap_set(key, value);
 
-    int found = 0;
-
-    while (fgets(line, sizeof(line), file) != NULL)
-    {
-        if (sscanf(line, "%99s %d", stored_key, &stored_value) == 2)
-        {
-            if (strcmp(stored_key, key) == 0)
-            {
-                *value = stored_value;
-                found = 1;
-            }
-        }
-    }
-
-    fclose(file);
-
-    return found;
+    return storage_linear_set(key, value);
 }
 
-void to_uppercase(char * str)
+/* GET : choisir l'algorithme */
+int storage_get(const char *key, int *value)
 {
-    long len = strlen(str);
-    for(int i = 0; i < len; i++)
-    {
-        if(str[i] >= 'a' && str[i] <= 'z') str[i] = str[i] - 'a' + 'A';
-    }
+    if (!initialized)
+        return 0;
+
+    if (active_mode == STORAGE_HASHMAP)
+        return storage_hashmap_get(key, value);
+
+    return storage_linear_get(key, value);
+}
+
+/* Fermer le moteur */
+void storage_close(void)
+{
+    if (!initialized)
+        return;
+
+    if (active_mode == STORAGE_HASHMAP)
+        storage_hashmap_close();
+
+    initialized = 0;
 }
