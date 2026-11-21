@@ -1,7 +1,18 @@
-
 #include <stdio.h>
 #include <string.h>
+#include <ctype.h>
+
 #include "storage.h"
+
+/* Convertir une chaîne en majuscules */
+void to_uppercase(char *str)
+{
+    while (*str != '\0')
+    {
+        *str = (char)toupper((unsigned char)*str);
+        str++;
+    }
+}
 
 int main(void)
 {
@@ -9,6 +20,16 @@ int main(void)
     char operation[16];
     char key[50];
     int value;
+
+    /* =====================================
+       CHOIX DE L'ALGORITHME DE STOCKAGE
+       ===================================== */
+
+    if (!storage_init(STORAGE_LINEAR))
+    {
+        printf("Erreur : impossible d'initialiser MiniDB.\n");
+        return 1;
+    }
 
     printf("MiniDB started!\n");
 
@@ -26,7 +47,9 @@ int main(void)
             continue;
         }
 
-        to_uppercase((char *)operation);
+        to_uppercase(operation);
+
+        /* ================= SET ================= */
 
         if (strcmp(operation, "SET") == 0)
         {
@@ -48,9 +71,12 @@ int main(void)
             }
         }
 
+        /* ================= GET ================= */
+
         else if (strcmp(operation, "GET") == 0)
         {
-            if (sscanf(input, "%15s %49s", operation, key) == 2)
+            if (sscanf(input, "%15s %49s",
+                       operation, key) == 2)
             {
                 int result;
 
@@ -69,6 +95,8 @@ int main(void)
             }
         }
 
+        /* ================= EXIT ================= */
+
         else if (strcmp(operation, "EXIT") == 0)
         {
             break;
@@ -78,6 +106,9 @@ int main(void)
             printf("Unknown command\n");
         }
     }
+
+    /* Libérer les ressources */
+    storage_close();
 
     printf("MiniDB closed.\n");
 
