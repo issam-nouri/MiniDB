@@ -26,6 +26,8 @@ int main(void)
             continue;
         }
 
+        to_uppercase((char *)operation);
+
         if (strcmp(operation, "SET") == 0)
         {
             if (sscanf(input, "%15s %49s %d",

@@ -53,3 +53,11 @@ int storage_get(const char *key, int *value)
     return found;
 }
 
+void to_uppercase(char * str)
+{
+    long len = strlen(str);
+    for(int i = 0; i < len; i++)
+    {
+        if(str[i] >= 'a' && str[i] <= 'z') str[i] = str[i] - 'a' + 'A';
+    }
+}
