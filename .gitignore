@@ -1,0 +1,7 @@
+# Fichiers de compilation
+*.exe
+*.o
+
+# Données locales de la base de données
+data/data.log
+data/sstables/*
