@@ -5,7 +5,8 @@
 typedef enum
 {
     STORAGE_LINEAR,
-    STORAGE_HASHMAP
+    STORAGE_HASHMAP,
+    STORAGE_BTREE
 } StorageMode;
 
 int storage_init(StorageMode mode);
