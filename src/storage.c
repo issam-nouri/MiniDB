@@ -41,7 +41,7 @@ int storage_set(const char *key, int value)
     if(active_mode == STORAGE_BTREE)
     {
         FILE * fp = storage_btree_open();
-        int result = storage_btree_set(fp, key, (DiskOffset){0, 0});
+        int result = storage_btree_set(fp, key, value);
         storage_btree_close(fp);
         return result;
     }
@@ -61,8 +61,7 @@ int storage_get(const char *key, int *value)
     if(active_mode == STORAGE_BTREE)
     {
         FILE * fp = storage_btree_open();
-        DiskOffset offset;
-        int result = storage_btree_get(fp, key, &offset);
+        int result = storage_btree_get(fp, key, value);
         storage_btree_close(fp);
         return result;
     }

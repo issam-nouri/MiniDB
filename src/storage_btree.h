@@ -5,8 +5,8 @@
 
 FILE * storage_btree_open();
 
-int storage_btree_set(FILE * fp, const char *key, DiskOffset value);
-int storage_btree_get(FILE * fp, const char *key, DiskOffset *value);
+int storage_btree_set(FILE * fp, const char *key, int value);
+int storage_btree_get(FILE * fp, const char *key, int *value);
 
 void storage_btree_close(FILE * fp);
 
