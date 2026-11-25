@@ -5,3 +5,6 @@
 # Données locales de la base de données
 data/data.log
 data/sstables/*
+
+# Journal local du LSM-Tree
+data/lsm.wal

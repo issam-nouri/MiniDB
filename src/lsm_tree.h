@@ -5,6 +5,7 @@
 #include <stddef.h>
 
 #define LSM_KEY_SIZE 50
+#define LSM_WAL_PATH "data/lsm.wal"
 
 /* Un element de la MemTable */
 typedef struct MemTableNode {
