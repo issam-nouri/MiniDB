@@ -1,11 +1,12 @@
-
 #ifndef LSM_TREE_H
 #define LSM_TREE_H
 
 #include <stddef.h>
+#include <sys/stat.h>
 
 #define LSM_KEY_SIZE 50
 #define LSM_WAL_PATH "data/lsm.wal"
+#define LSM_SSTABLE_DIR "data/sstables"
 
 /* Un element de la MemTable */
 typedef struct MemTableNode {
@@ -37,4 +38,6 @@ int lsm_tree_get(const LSMTree *tree, const char *key, int *value);
 /* Liberation de la memoire */
 void lsm_tree_close(LSMTree *tree);
 
+/* Ecrire la MemTable dans une nouvelle SSTable */
+int lsm_tree_write_sstable(const LSMTree *tree);
 #endif

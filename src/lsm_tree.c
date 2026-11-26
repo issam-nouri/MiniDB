@@ -1,4 +1,3 @@
-
 #include "lsm_tree.h"
 #include <stdio.h>
 #include <stdlib.h>
@@ -273,3 +272,108 @@ void lsm_tree_close(LSMTree *tree)
     tree->memtable.head = NULL;
     tree->memtable.count = 0;
 }
+
+
+/*
+ * Ecrire la MemTable triee dans une nouvelle SSTable.
+ *
+ * Cette premiere version conserve la MemTable et le WAL.
+ * Retourne 1 si la SSTable est creee, sinon 0.
+ */
+int lsm_tree_write_sstable(const LSMTree *tree)
+{
+    if (tree == NULL || tree->memtable.head == NULL)
+    {
+        return 0;
+    }
+
+    /* Trouver un nom de fichier disponible */
+    for (unsigned int id = 1; id <= 999999; ++id)
+    {
+        char final_path[160];
+        char temp_path[160];
+
+        int a = snprintf(final_path, sizeof(final_path),
+                         "%s/sst_%06u.sst",
+                         LSM_SSTABLE_DIR, id);
+
+        int b = snprintf(temp_path, sizeof(temp_path),
+                         "%s/sst_%06u.tmp",
+                         LSM_SSTABLE_DIR, id);
+
+        if (a < 0 || b < 0 ||
+            a >= (int)sizeof(final_path) ||
+            b >= (int)sizeof(temp_path))
+        {
+            return 0;
+        }
+
+        struct stat info;
+
+        if (stat(final_path, &info) == 0)
+        {
+            continue;
+        }
+
+        if (errno != ENOENT)
+        {
+            perror("Erreur verification SSTable");
+            return 0;
+        }
+
+        /* Creer un fichier temporaire sans ecraser
+           un fichier existant */
+        FILE *file = fopen(temp_path, "wx");
+
+        if (file == NULL)
+        {
+            if (errno == EEXIST)
+            {
+                continue;
+            }
+
+            perror("Erreur creation SSTable");
+            return 0;
+        }
+
+        int success = 1;
+
+        /* Parcourir la liste chainee triee */
+        for (const MemTableNode *node = tree->memtable.head;
+             node != NULL;
+             node = node->next)
+        {
+            if (fprintf(file, "%s %d\n",
+                        node->key, node->value) < 0)
+            {
+                success = 0;
+                break;
+            }
+        }
+
+        if (fclose(file) == EOF)
+        {
+            success = 0;
+        }
+
+        if (!success)
+        {
+            remove(temp_path);
+            return 0;
+        }
+
+        /* Publier la SSTable seulement apres
+           la fin de son ecriture */
+        if (rename(temp_path, final_path) != 0)
+        {
+            perror("Erreur publication SSTable");
+            remove(temp_path);
+            return 0;
+        }
+
+        return 1;
+    }
+
+    return 0;
+}
+
