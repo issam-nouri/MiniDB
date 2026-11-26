@@ -3,6 +3,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <errno.h>
+#include <dirent.h>
 static int lsm_wal_recover(LSMTree *tree);
 
 static int lsm_apply_set(LSMTree *tree,
@@ -211,41 +212,188 @@ int lsm_tree_set(LSMTree *tree, const char *key, int value)
 }
 
 
+/*
+ * Rechercher une cle dans les SSTables.
+ * Conserver la valeur de la SSTable ayant le plus grand ID.
+ *
+ * Hypothese temporaire : les IDs ne sont pas reutilises.
+ * Retourne 1 si la cle existe, sinon 0.
+ */
+static int lsm_sstable_get(const char *key, int *value)
+{
+    DIR *dir = opendir(LSM_SSTABLE_DIR);
 
+    if (dir == NULL)
+    {
+        if (errno != ENOENT)
+            perror("Erreur ouverture dossier SSTables");
+        return 0;
+    }
+
+    unsigned int newest_id = 0;
+    int newest_value = 0;
+    int found = 0;
+    int error = 0;
+    struct dirent *entry;
+
+    for (;;)
+    {
+        errno = 0;
+        entry = readdir(dir);
+
+        if (entry == NULL)
+        {
+            if (errno != 0)
+            {
+                perror("Erreur lecture dossier SSTables");
+                error = 1;
+            }
+            break;
+        }
+
+        const char *name = entry->d_name;
+
+        /* Accepter uniquement sst_XXXXXX.sst */
+        if (strlen(name) != 14 ||
+            strncmp(name, "sst_", 4) != 0 ||
+            strcmp(name + 10, ".sst") != 0)
+        {
+            continue;
+        }
+
+        unsigned int id = 0;
+
+        for (int i = 4; i < 10; i++)
+        {
+            if (name[i] < '0' || name[i] > '9')
+            {
+                id = 0;
+                break;
+            }
+
+            id = id * 10u +
+                 (unsigned int)(name[i] - '0');
+        }
+
+        /* Ignorer les SSTables plus anciennes */
+        if (id == 0 || id <= newest_id)
+            continue;
+
+        char path[160];
+
+        int n = snprintf(path, sizeof(path),
+                         "%s/%s", LSM_SSTABLE_DIR, name);
+
+        if (n < 0 || n >= (int)sizeof(path))
+        {
+            error = 1;
+            break;
+        }
+
+        FILE *file = fopen(path, "r");
+
+        if (file == NULL)
+        {
+            perror("Erreur ouverture SSTable");
+            error = 1;
+            break;
+        }
+
+        char line[256];
+        char file_key[LSM_KEY_SIZE];
+        char extra;
+        int file_value;
+        int file_error = 0;
+
+        /* Parcourir les cles triees du fichier */
+        while (fgets(line, sizeof(line), file) != NULL)
+        {
+            if (strchr(line, '\n') == NULL ||
+                sscanf(line, "%49s %d %c",
+                       file_key, &file_value, &extra) != 2)
+            {
+                file_error = 1;
+                break;
+            }
+
+            int comparison = strcmp(file_key, key);
+
+            if (comparison == 0)
+            {
+                newest_id = id;
+                newest_value = file_value;
+                found = 1;
+                break;
+            }
+
+            /* Le fichier est trie */
+            if (comparison > 0)
+                break;
+        }
+
+        if (ferror(file))
+            file_error = 1;
+
+        if (fclose(file) == EOF)
+            file_error = 1;
+
+        if (file_error)
+        {
+            fprintf(stderr,
+                    "Erreur de lecture SSTable : %s\n", path);
+            error = 1;
+            break;
+        }
+    }
+
+    if (closedir(dir) != 0)
+        error = 1;
+
+    if (error)
+        return 0;
+
+    if (found)
+        *value = newest_value;
+
+    return found;
+}
+ 
 /*
  * GET : rechercher une cle dans la MemTable.
  * Retourner 1 si elle existe, sinon 0.
  */
-int lsm_tree_get(const LSMTree *tree, const char *key, int *value)
+int lsm_tree_get(const LSMTree *tree,
+                 const char *key,
+                 int *value)
 {
     if (tree == NULL || key == NULL || value == NULL)
     {
         return 0;
     }
 
+    /* Etape 1 : chercher dans la MemTable */
     const MemTableNode *current = tree->memtable.head;
 
     while (current != NULL)
     {
         int comparison = strcmp(current->key, key);
 
-        /* Cle trouvee */
         if (comparison == 0)
         {
             *value = current->value;
             return 1;
         }
 
-        /* Arreter si la cle recherchee a ete depassee */
         if (comparison > 0)
         {
-            return 0;
+            break;
         }
 
         current = current->next;
     }
 
-    return 0;
+    /* Etape 2 : chercher dans les SSTables */
+    return lsm_sstable_get(key, value);
 }
 
 /*
