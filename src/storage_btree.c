@@ -62,21 +62,26 @@ bool db_insert(FILE *idx_fp, FileHeader *hdr, FILE *data_fp, const char *name, i
 }
 
 // 2. SEARCH: look up DiskOffset in B-Tree, then read row from data.bin
-bool db_search(FILE *idx_fp, const FileHeader *hdr, FILE *data_fp, const char *name, int *value) {
+bool internal_db_search(FILE *idx_fp, const FileHeader *hdr, FILE *data_fp, const char *name, Person *out) {
     DiskOffset loc;
     if (!btree_search(idx_fp, hdr, name, &loc)) {
         return false;
     }
 
-    Person person;
     fseek(data_fp, offset_to_bytes(loc), SEEK_SET);
-    if (fread(&person, sizeof(Person), 1, data_fp) != 1 || !out->active) {
+    if (fread(out, sizeof(Person), 1, data_fp) != 1 || !out->active) {
         return false;
     }
 
-    *value = preson.age;
-
     return true;
+}
+
+bool db_search(FILE *idx_fp, const FileHeader *hdr, FILE *data_fp, const char *name, int * value)
+{
+    Person person;
+    int ret = internal_db_search(idx_fp, hdr, data_fp, name, &person);
+    *value = person.age;
+    return ret;
 }
 
 // 3. DELETE: remove from B-Tree, then mark row as inactive in data.bin
@@ -101,19 +106,19 @@ bool db_delete(FILE *idx_fp, FileHeader *hdr, FILE *data_fp, const char *name) {
 
 FILE * storage_btree_open()
 {
-    return btree_open(DATA_FILE, &hdr);
+    return btree_open(TREE_FILE, &hdr);
 }
 
 int storage_btree_set(FILE * fp, const char *key, int value)
 {
-    FILE * fd = fclose(DATA_FILE, "rw");
+    FILE * fd = fopen(DATA_FILE, "rw");
     bool ret = db_insert(fp, &hdr, fd, key, value);
     fclose(fd);
     return ret;
 }
 int storage_btree_get(FILE * fp, const char *key, int *value)
 {
-    FILE * fd = fclose(DATA_FILE, "rw");
+    FILE * fd = fopen(DATA_FILE, "rw");
     bool ret = db_search(fp, &hdr, fd, key, value);
     fclose(fd);
     return ret;
