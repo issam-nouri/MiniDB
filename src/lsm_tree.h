@@ -40,4 +40,7 @@ void lsm_tree_close(LSMTree *tree);
 
 /* Ecrire la MemTable dans une nouvelle SSTable */
 int lsm_tree_write_sstable(const LSMTree *tree);
+
+int lsm_tree_flush(LSMTree *tree);
+
 #endif

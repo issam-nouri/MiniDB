@@ -525,3 +525,25 @@ int lsm_tree_write_sstable(const LSMTree *tree)
     return 0;
 }
 
+/*
+ * Flush manuel de la MemTable.
+ * Le WAL n'est pas encore nettoye.
+ */
+int lsm_tree_flush(LSMTree *tree)
+{
+    if (tree == NULL || tree->memtable.head == NULL)
+    {
+        return 0;
+    }
+
+    /* 1. Ecrire les donnees sur disque */
+    if (!lsm_tree_write_sstable(tree))
+    {
+        return 0;
+    }
+
+    /* 2. Liberer les noeuds de la MemTable */
+    lsm_tree_close(tree);
+
+    return 1;
+}
